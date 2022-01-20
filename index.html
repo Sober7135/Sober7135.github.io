@@ -188,7 +188,7 @@
       <span class="post-meta-item-text">发表于</span>
       
 
-      <time title="创建时间：2022-01-20 15:21:09 / 修改时间：21:48:19" itemprop="dateCreated datePublished" datetime="2022-01-20T15:21:09+08:00">2022-01-20</time>
+      <time title="创建时间：2022-01-20 15:21:09 / 修改时间：21:51:50" itemprop="dateCreated datePublished" datetime="2022-01-20T15:21:09+08:00">2022-01-20</time>
     </span>
 
   
@@ -206,48 +206,15 @@
 <h4 id="1-双系统"><a href="#1-双系统" class="headerlink" title="1    双系统"></a>1    双系统</h4><p>我是windows和arch linux装在一块硬盘里，除了要装grub，efibootmgr以外，还要装ntfs-3g和os-prober。ntfs-3g是读写ntfs的驱动，os-prober用于检测windows系统</p>
 <figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sudo pacman -S os-prober ntfs-3g</span><br></pre></td></tr></table></figure>
 
-<p>arch wiki指出要<a target="_blank" rel="noopener" href="https://wiki.archlinux.org/title/GRUB#Configuration">编辑/etc/default/grub</a>，将<code>GRUB_DISABLE_OS_PROBER=false</code>注释去掉才能，检测到windows系统。</p>
-<p>接下来执行，<em>esp</em>指的是你的启动分区，比如我的就是/boot。</p>
-<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">grub-install --target=x86_64-efi --efi-directory=esp --bootloader-id=GRUB</span><br></pre></td></tr></table></figure>
-
-<p>接下来要生成grub.cfg文件，由于双系统启动，所以先要将windows盘挂上</p>
-<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">mount /dev/nvme0n1p4 /mnt/windows</span><br><span class="line">grub-mkconfig -o /boot/grub/grub.cfg</span><br></pre></td></tr></table></figure>
-
-<p>然后reboot就可以看到两个启动项了。</p>
-<p><del>虽然我第一次装的时候死活搞不出Arch启动项，可以看<a target="_blank" rel="noopener" href="https://wiki.archlinux.org/title/GRUB#GNU/Linux">wiki</a>自己写一个</del></p>
-<h4 id="2-键盘"><a href="#2-键盘" class="headerlink" title="2    键盘"></a>2    键盘</h4><p>我用外接键盘，当我按下F区键时，没有应答。应该是要禁用fn键。</p>
-<p>网上一顿乱搜，找到了<a target="_blank" rel="noopener" href="https://www.hashbangcode.com/article/turning-or-fn-mode-ubuntu-linux">教程</a>。</p>
-<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">echo options hid_apple fnmode=0 | sudo tee -a /etc/modprobe.d/hid_apple.conf</span><br></pre></td></tr></table></figure>
-
-<p>reboot就完事了。</p>
-<h4 id="3-git"><a href="#3-git" class="headerlink" title="3    git"></a>3    git</h4><p>使用git clone时出现报错，以及之前git push的时候也会出现这个情况。在之前网上简单搜索了一下，是因为开了代理。</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">Cloning into &#x27;xxxxx&#x27;...</span><br><span class="line">kex_exchange_identification: Connection closed by remote host</span><br><span class="line">Connection closed by 20.205.243.166 port 22</span><br><span class="line">fatal: Could not read from remote repository.</span><br><span class="line"></span><br><span class="line">Please make sure you have the correct access rights and the repository exists.</span><br></pre></td></tr></table></figure>
-
-<p>现在我嫌开关代理太麻烦了，经过一顿搜索，找到了一个其他的方法。</p>
-<p>在<code>~/.ssh</code>下创建<code>config</code>文件</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">Host github.com</span><br><span class="line"> Hostname ssh.github.com</span><br><span class="line"> Port 443</span><br></pre></td></tr></table></figure>
-
-<p>具体啥原理我也不知道，等我学了计算机网络再来吧（）</p>
-<h4 id="4-开机卡在-dev-nvme0n1p6-clean-files-blocks"><a href="#4-开机卡在-dev-nvme0n1p6-clean-files-blocks" class="headerlink" title="4    开机卡在/dev/nvme0n1p6 clean */* files */* blocks"></a>4    开机卡在<code>/dev/nvme0n1p6 clean */* files */* blocks</code></h4><p>网上查了一下，应该是检查文件。网上的一位老哥给出了一个解决方法，进入<code>grub</code>的时候，按<code>e</code>，将<code>quiet</code>，我认为这应该解决不了问题，但还是尝试了一下。结果是启动的时候，找不到有线网卡，恩是找了90s。</p>
-<blockquote>
-<p>a starting job is running for /sys/subsystem/net/devices/enp1s0 (**/ 1min 30s)</p>
-</blockquote>
-<p>然后再一顿搜索，找到一个<a target="_blank" rel="noopener" href="https://bbs.archlinux.org/viewtopic.php?id=222733">相关问题</a></p>
-<p>用<code>find  /etc/systemd</code>查找一下，发现果然有一个。</p>
-<p>用<code>ip link</code>对照了一下，应该是打错，，</p>
-<p>其实替换了以后，还是会出现上面那个字样，但是很快就检查完了XD</p>
-<h4 id="5-wpa-supplicant相关问题"><a href="#5-wpa-supplicant相关问题" class="headerlink" title="5    wpa_supplicant相关问题"></a>5    wpa_supplicant相关问题</h4><p>首先是<code>wpa_cli</code>下<code>scan</code>没有效果</p>
-<p>网上也找到了<a target="_blank" rel="noopener" href="https://bbs.archlinux.org/viewtopic.php?id=234877">解决方法</a></p>
-<p><code>wpa_cli</code>指定的interface出现了问题，每次输入命令的时候指定就好了。</p>
-<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sudo wpa_cli -i wlp2s0</span><br></pre></td></tr></table></figure>
-
-
-
-<h4 id="6-浏览器画面撕裂问题"><a href="#6-浏览器画面撕裂问题" class="headerlink" title="6     浏览器画面撕裂问题"></a>6     浏览器画面撕裂问题</h4><p>gpu是amd的核显，驱动也装了。<a target="_blank" rel="noopener" href="https://www.jianshu.com/p/01d41ced5903">解决方案</a></p>
-<p>创建文件<code>/etc/X11/xorg.conf.d/20-amdgpu.conf</code>，添加一下内容，即可</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">Section &quot;Device&quot;</span><br><span class="line">     Identifier &quot;AMD&quot;</span><br><span class="line">     Driver &quot;amdgpu&quot;</span><br><span class="line">     Option &quot;TearFree&quot; &quot;true&quot;</span><br><span class="line">EndSection</span><br></pre></td></tr></table></figure>
-
-
+<p>arch wiki指出要<a target="_blank" rel="noopener" href="https://wiki.archlinux.org/title/GRUB#Configuration">编辑/etc/default/grub</a>，将<code>GRUB_DISABLE_OS_PROBER=false</code>注释去掉才能，检测到windows系统。
+          <!--noindex-->
+            <div class="post-button">
+              <a class="btn" href="/2022/01/20/%E8%AE%B0%E5%BD%95%E4%B8%80%E4%B8%8B%E8%A3%85arch%E9%81%87%E5%88%B0%E7%9A%84%E4%B8%80%E4%BA%9B%E9%97%AE%E9%A2%98/#more" rel="contents">
+                阅读全文 &raquo;
+              </a>
+            </div>
+          <!--/noindex-->
+        
       
     </div>
 
