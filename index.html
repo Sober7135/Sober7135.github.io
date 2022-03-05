@@ -186,10 +186,16 @@
         <i class="far fa-calendar"></i>
       </span>
       <span class="post-meta-item-text">发表于</span>
-      
 
-      <time title="创建时间：2022-01-20 15:21:09 / 修改时间：21:51:50" itemprop="dateCreated datePublished" datetime="2022-01-20T15:21:09+08:00">2022-01-20</time>
+      <time title="创建时间：2022-01-20 15:21:09" itemprop="dateCreated datePublished" datetime="2022-01-20T15:21:09+08:00">2022-01-20</time>
     </span>
+      <span class="post-meta-item">
+        <span class="post-meta-item-icon">
+          <i class="far fa-calendar-check"></i>
+        </span>
+        <span class="post-meta-item-text">更新于</span>
+        <time title="修改时间：2022-03-05 21:21:17" itemprop="dateModified" datetime="2022-03-05T21:21:17+08:00">2022-03-05</time>
+      </span>
 
   
 </div>
@@ -203,7 +209,7 @@
     <div class="post-body" itemprop="articleBody">
           <p>Arch wiki yyds！</p>
 <p>这篇主要记录一下，自己遇到问题（还是应该以wiki为主）。</p>
-<h4 id="1-双系统"><a href="#1-双系统" class="headerlink" title="1    双系统"></a>1    双系统</h4><p>我是windows和arch linux装在一块硬盘里，除了要装grub，efibootmgr以外，还要装ntfs-3g和os-prober。ntfs-3g是读写ntfs的驱动，os-prober用于检测windows系统</p>
+<h4 id="1-双系统"><a href="#1-双系统" class="headerlink" title="1    双系统"></a>1    双系统</h4><p>我是windows和arch linux装在一块硬盘里，除了要装grub，efibootmgr以外，还要装ntfs-3g和os-prober。ntfs-3g是读写ntfs的驱动，os-prober用于检测windows系统。</p>
 <figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sudo pacman -S os-prober ntfs-3g</span><br></pre></td></tr></table></figure>
 
 <p>arch wiki指出要<a target="_blank" rel="noopener" href="https://wiki.archlinux.org/title/GRUB#Configuration">编辑/etc/default/grub</a>，将<code>GRUB_DISABLE_OS_PROBER=false</code>注释去掉才能，检测到windows系统。
