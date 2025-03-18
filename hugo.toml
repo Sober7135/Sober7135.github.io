@@ -1,0 +1,50 @@
+baseURL = "https://smigle-hugo-theme.netlify.app/"
+languageCode = "en-us"
+theme = "smigle"
+title = "Sober7135's Blog"
+
+[[menu.main]]
+identifier = "home"
+name = "Home"
+url = "/"
+weight = 1
+
+[[menu.main]]
+identifier = "about"
+name = "About"
+url = "/about/"
+weight = 2
+
+[[menu.main]]
+identifier = "posts"
+name = "Posts"
+url = "/posts/"
+weight = 3
+
+[[menu.main]]
+identifier = "tags"
+name = "Tags"
+url = "/tags/"
+weight = 4
+
+[[menu.main]]
+identifier = "rss"
+name = "RSS"
+url = "/index.xml"
+weight = 5
+
+[params]
+abbrDateFmt = "Jan 2"
+author = "Sober7135"
+brandIconFile = "images/brandIcon.svg"
+dateFmt = "2006-01-02"
+subtitle = "No such file or directory"
+
+[[params.social]]
+name = "GitHub"
+url = "https://github.com/Sober7135"
+
+[markup.goldmark.renderer]
+hardWraps = false
+unsafe = true
+xhtml = false
