@@ -1,7 +1,7 @@
 +++
 date = '2025-03-21T19:52:50+08:00'
 draft = false
-title = '[Notes] an Introduction to the Linux Kernel Block IO Stack'
+title = '[Notes] An Introduction to the Linux Kernel Block IO Stack'
 tags = ["Linux", "Linux Kernel", "filesystem", "block I/O stack"]
 +++
 
@@ -224,9 +224,118 @@ none [mq-deadline] kyber bfq
 这里的 MQ context affinities 应该指的是 (感谢 ChatGPT)
 > The MQ system tries to keep I/O requests associated with a particular CPU or context on the same queue. This helps in reducing overhead (like cache misses or lock contention) by keeping processing “local” to where the request originated 
 
-
-
-
-
-
 ~~感觉 Block MQ 这部分都没咋听懂~~
+
+## What About Stacked Block Devices?
+1. Device-Mapper (dm) and Raid (md) use virtual/stacked block device on top of existing hardware-backed block devices ([15, 21])
+  - Examples: RAID, LVM2, Multipathing
+2. Same structure as shown on page 6 and 7, without hardware specific structures, stacked on other block_devices
+  - **BIO based**: doesn’t have an Elevator, an own tag-set, nor any soft-, or hardware-contexts; modify I/O (BIO) after submission and immediately pass it on
+  - Request based: have full set of infrastructure (only dm-multipath atm.); can queue requests; bypass lower-level queueing
+3. `queue_limits` of lower-level devices are aggregated into the "greatest common divisor", so that requests can be scheduled on any of them
+4. holders/slaves directories in sysfs show relationship
+
+# I/O Flow in the Block Layer
+---
+
+## Submission of I/O Requests from Userspace (Simplified)
+
+I/O submission 主要分为两个部分
+
+1. **Buffered I/O**, Requests served via Page Cache;
+  1. Writes cached and eventually -- ususally asynchronously -- written to disk via *Writeback*
+  2. Reads served directly if fresh, otherwise read from disk synchronously
+2. **Direct I/O**, Requests served directly by backing disk; alignment and possibly size requirements; DMA directly into/from User memory possible
+
+For syncronous I/O system calls, tasks wait in state TASK_UNINTERRUPTIBLE
+
+![](/img/submission-of-io-requests-from-userspace.png)
+
+## A New Asynchronous I/O Interface: `io_uring`
+
+Linux 5.1 `io_uring` 加入
+
+1. 新的一系列 syscall, 用于创建 SQ, CQ, 提交 SQE array
+2. 这些结构 shared between Kernel and User via mmap
+3. Submission and completion work asynchronously
+4. Utilizes standard syscall backends for calls like readv(2), writev(2), or fsync(2); with same categories as [previous](#submission-of-io-requests-from-userspace-simplified)
+
+## The I/O Unit of the Block Layer: BIO
+
+1. BIOs 表示一个正在进行的 I/O (in-flight I/O)
+2. Application data kept separate; array of `bio_vec`s holds pointers to pages with application data (scatter/gather list)
+3. Position and progress managed in `bvec_iter`:
+  1. `bi_sector` start sector
+  2. `bi_size` size in bytes
+  3. `bi_idx` current bvec index
+  4. `bi_bvec_done` finished work in bytes
+4. BIOs might be split when queue limits execeeded; or cloned when same data goes to different places(?????)
+5. 单个 BIO data 大小为 4GiB
+
+![](/img/bio.png)
+
+## Plugging and Merging
+
+在将 bio 发送给 block device 先要将 bio 加入一个 "plugged" request queue, 以便发现一些可以 merge 的 request
+
+***Plugging***:
+- 当 VFS 生成 I/O requests 并且 submits 它们, 它会将 request 插入(plugs) target block device 的 request queue[^1]
+- 在 plug 里面的 request 不会直接被提交, 直到 **unplugging**
+- **Unplugging** 的发生可能是显示地(explicitly), 或者是当 scheduled context switches
+
+***Merging***:
+- BIOs 和 requests 会和已经 queued / *plugged* requests 尝试 merge, 合并会两种类型
+  - **Back-Merging**: The new data fits to the end of an existing request
+  - **Front-Merging**: The new data fits to the beginning of an existing request
+- Merging 通过 concatenating BIOs via `bi_next` 完成
+- Merges 后的 request 必须遵守 queue limits
+
+## Entry Function into the Block Layer
+
+以下是 `submit_bio` 的伪代码
+
+1. 如果是 I/O 是必要的(这里的意思是应该是不在 page cache 的情况), BIOs 会生成并且通过 `submit_bio` submitted 到 block layer
+2. 不一定保证是异步处理的; callback 通过 `bio->bi_end_io(bio)`
+3. One submitted BIO can turn into several more(block queue limits, stacked device, ...); each is also submitted via `submit_bio()`
+4. Especially for stacked devices this could exhaust kernel stack space -> turn recursion into iteration(approx.: dfs with stack)
+
+![](/img/submit-bio-func.png)
+
+
+## Request Submission and Dispatch
+1. 当一个 BIO 到达了 request queue, 会向对应的 HCTX 索要 tag
+   - 如果现在没有空闲的 tag, 则 back pressure
+2. The BIO is added to the associatec Request; via linking, this could be multiple BIOs per request
+3. Request 将会插入 software context FIFO queue, 或者是 Elevator(if enabled); the HCTX work-item is queued into `kblockd` (即 "kernel block daemon", kblockd is responsible for pulling these queued requests from the software context (or Elevator) and dispatching them to the hardware device driver)
+4. 相关的 CPU 执行 HCTX work-item
+5. Work-item pulls queued requests out of associated software contexts or Elevators and hands them to HW device driver
+
+![](/img/request-submission-and-dispatch.png)
+
+## Request Completion
+
+1. 当 request 完成后, 一般通过中断来提醒
+2. To keep data CPU local, interrupts 应该绑定到与 MQ software context 相关的 CPU.(platform-/controller-/driver-dependant)
+   - 如果做不到, 则 blk-mq resorts to IPI(inter-processor interrupt) or SoftIRQ(software interrupt) otherwise
+3. The device driver is responsible for determining the corresponding block layer request for the signaled completion
+4. Progress is measurred by how many bytes were successfully completed; might cause re-schedule
+5. Process of completing a request is a bunch of **callbacks** to notify the waiting user-/kernel-thread
+
+![](/img/request-completion.png)
+
+## Block Layer Polling
+
+1. 中断是很慢的, 可能会有 context 的切换 => Similar to high speed networking, with **high speed storage targets** it can be beneficial to use **Polling instead of Waiting for Interrupts** to handle request completion
+  - Decreases response times and reduces overhead produced by interrupts on fast devices (尤其是速度很快的设备, 可以明显的减少 response time)
+2. Availlable in Linux since 4.10; only supportted by NVMe at this point (在当时)
+  - 开启方法 `echo 1 > /sys/class/block/<name>/queue/io_poll`
+  - Enable for NVMe with module parameter: nvme.poll_queues=N
+3. Device driver creates **separate HW queues** taht have interrupts disabled
+4. 在当时, 只有 Direct I/O 支持
+  - Pass `RWF_HIPRI` to `readv`(2) / `writev`(2)
+  - Pass `IORING_SETUP_IOPOLL` to `io_uring_setup`(2) for io_uring
+5. When used, application threads that issued I/O, or io_uring worker threads, actively poll in HW queues whether the issued request has been completed
+
+
+# Reference
+[^1]: Explicit block device plugging https://lwn.net/Articles/438256/
