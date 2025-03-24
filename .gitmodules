@@ -1,6 +1,3 @@
-[submodule "themes/not-much"]
-	path = themes/not-much
-	url = https://github.com/imgios/not-much.git
 [submodule "themes/smigle"]
 	path = themes/smigle
-	url = https://gitlab.com/ian-s-mcb/smigle-hugo-theme
+	url = git@github.com:Sober7135/smigle-hugo-theme.git
