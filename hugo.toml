@@ -38,7 +38,8 @@ abbrDateFmt = "Jan 2"
 author = "Sober7135"
 brandIconFile = "images/brandIcon.svg"
 dateFmt = "2006-01-02"
-subtitle = "No such file or directory"
+subtitle = "we can go anywhere we want."
+# subtitle = "No such file or directory"
 
 [[params.social]]
 name = "GitHub"
@@ -48,3 +49,7 @@ url = "https://github.com/Sober7135"
 hardWraps = false
 unsafe = true
 xhtml = false
+
+[caches]
+  [caches.images]
+    dir = ':cacheDir/images'
